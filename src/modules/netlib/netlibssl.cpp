@@ -167,8 +167,8 @@ static bool SSL_library_load(void)
 
 	if (!bSslInitDone)
 	{
-		g_hOpenSSL = LoadLibraryA("ssleay32.dll");
 		g_hOpenSSLCrypto = LoadLibraryA("libeay32.dll");
+		g_hOpenSSL = LoadLibraryA("ssleay32.dll");
 		if (g_hOpenSSL && g_hOpenSSLCrypto)
 		{
 			// load function pointers
@@ -300,7 +300,15 @@ static bool ClientConnect(SslHandle *ssl, const char *host)
 	// contrary to what it's named, SSLv23 announces all supported ciphers/versions,
 	// generally TLS1.2 in a TLS1.0 Client Hello
 	meth = (SSL_METHOD*)g_OpenSSL.SSLv23_client_method();
+	if (!meth) {
+		NetlibLogf(NULL, "SSL setup failure: client method");
+		return false;
+	}
 	ssl->ctx = g_OpenSSL.SSL_CTX_new(meth);
+	if (!ssl->ctx) {
+		NetlibLogf(NULL, "SSL setup failure: context");
+		return false;
+	}
 	// disable dangerous cipher suites
 	g_OpenSSL.SSL_CTX_ctrl(ssl->ctx, SSL_CTRL_OPTIONS, SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3, NULL);
 	// SSL_read/write should transparently handle renegotiations
@@ -308,6 +316,10 @@ static bool ClientConnect(SslHandle *ssl, const char *host)
 
 	g_OpenSSL.RAND_screen();
 	ssl->session = g_OpenSSL.SSL_new(ssl->ctx);
+	if (!ssl->session) {
+		NetlibLogf(NULL, "SSL setup failure: session");
+		return false;
+	}
 	g_OpenSSL.SSL_set_fd(ssl->session, ssl->s);
 
 	int err = g_OpenSSL.SSL_connect(ssl->session);
@@ -315,6 +327,7 @@ static bool ClientConnect(SslHandle *ssl, const char *host)
 	if (err != 1) {
 		err = g_OpenSSL.SSL_get_error(ssl->session, err);
 		NetlibLogf(NULL, "SSL negotiation failure (%d)", err);
+		return false;
 	}
 
 	const char* suite = SSL_GetCipherName(ssl);
