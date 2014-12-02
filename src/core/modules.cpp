@@ -33,6 +33,7 @@ int  LoadSystemModule(void);		// core: m_system.h services
 int  LoadNewPluginsModuleInfos(void); // core: preloading plugins
 int  LoadNewPluginsModule(void);	// core: N.O. plugins
 int  LoadSslModule(void);
+int  LoadSslPlugin(void);
 int  LoadNetlibModule(void);		// core: network
 void NetlibInitSsl(void);
 int  LoadLangpackModule(void);	// core: translation
@@ -90,18 +91,16 @@ int  LoadDescButtonModule();
 
 static BOOL bSslIsPlugin = FALSE;
 
-int LoadSslModuleOrPlugin(void)
+int LoadSslPluginOrModule(void)
 {
-	MuuidReplacement sslapi = { MIID_SSL, _T("SslApi"), NULL };
-	int res = LoadCorePlugin(sslapi);
-	if (res) {
+	if (!LoadSslPlugin() && ServiceExists(MS_SYSTEM_GET_SI)) {
 		bSslIsPlugin = true;
 		return 0;
 	}
 	return LoadSslModule();
 }
 
-void UnloadSslModuleOrPlugin(void)
+void UnloadSslPluginOrModule(void)
 {
 	if (!bSslIsPlugin) {
 		UnloadSslModule();
@@ -163,7 +162,7 @@ int LoadDefaultModules(void)
 	if (LoadDescButtonModule()) return 1;
 	if (LoadOptionsModule()) return 1;
 	if (LoadNetlibModule()) return 1;
-	if (LoadSslModuleOrPlugin()) return 1;
+	if (LoadSslPluginOrModule()) return 1;
 	NetlibInitSsl();
 	if (LoadProtocolsModule()) return 1;
 	LoadDbAccounts();                    // retrieves the account array from a database
@@ -204,5 +203,5 @@ void UnloadDefaultModules(void)
 	UnloadContactListModule();
 	UnloadEventsModule();
 	UnloadNetlibModule();
-	UnloadSslModuleOrPlugin();
+	UnloadSslPluginOrModule();
 }
