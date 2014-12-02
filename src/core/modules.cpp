@@ -93,7 +93,7 @@ static BOOL bSslIsPlugin = FALSE;
 
 int LoadSslPluginOrModule(void)
 {
-	if (!LoadSslPlugin() && ServiceExists(MS_SYSTEM_GET_SI)) {
+	if (!LoadSslPlugin()) {
 		bSslIsPlugin = true;
 		return 0;
 	}

@@ -795,6 +795,7 @@ int LoadNewPluginsModule(void)
 int LoadSslPlugin(void)
 {
 	// if an SSL Core Plugin is present, load it before initializing builtin SSL
+	bool bPluginLoaded = false;
 
 	// get miranda's exe path
 	TCHAR exe[MAX_PATH];
@@ -817,14 +818,17 @@ int LoadSslPlugin(void)
 					TCHAR *p = _tcsrchr(tszNameOnly, '.'); if (p) *p = 0;
 
 					bool bIsPlugin = false;
-					bool res = false;
 					mir_ptr<MUUID> pIds( GetPluginInterfaces(tszFullPath, bIsPlugin));
-					if (bIsPlugin) {
-						if (hasMuuid(pIds, miid_ssl)) {
-							MuuidReplacement mr = {MIID_SSL, tszNameOnly, NULL};
-							res = LoadCorePlugin(mr);
-							if (res) {
+					if (bIsPlugin && hasMuuid(pIds, miid_ssl)) {
+						MuuidReplacement mr = {MIID_SSL, tszNameOnly, NULL};
+						bPluginLoaded = LoadCorePlugin(mr);
+						if (bPluginLoaded) {
+							// unload if the plugin claims to be SSL, but didn't register an API
+							if (ServiceExists(MS_SYSTEM_GET_SI)) {
 								break;
+							} else {
+								Plugin_UnloadDyn(mr.pImpl);
+								bPluginLoaded = false;
 							}
 						}
 					}
@@ -834,7 +838,7 @@ int LoadSslPlugin(void)
 		} //if
 	}
 
-	return 1;
+	return !bPluginLoaded;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
