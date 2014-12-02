@@ -88,6 +88,26 @@ int  LoadIcoTabsModule();
 int  LoadHeaderbarModule();
 int  LoadDescButtonModule();
 
+static BOOL bSslIsPlugin = FALSE;
+
+int LoadSslModuleOrPlugin(void)
+{
+	MuuidReplacement sslapi = { MIID_SSL, _T("SslApi"), NULL };
+	int res = LoadCorePlugin(sslapi);
+	if (res) {
+		bSslIsPlugin = true;
+		return 0;
+	}
+	return LoadSslModule();
+}
+
+void UnloadSslModuleOrPlugin(void)
+{
+	if (!bSslIsPlugin) {
+		UnloadSslModule();
+	}
+}
+
 int LoadDefaultModules(void)
 {
 	// load order is very important for these
@@ -143,7 +163,7 @@ int LoadDefaultModules(void)
 	if (LoadDescButtonModule()) return 1;
 	if (LoadOptionsModule()) return 1;
 	if (LoadNetlibModule()) return 1;
-	if (LoadSslModule()) return 1;
+	if (LoadSslModuleOrPlugin()) return 1;
 	NetlibInitSsl();
 	if (LoadProtocolsModule()) return 1;
 	LoadDbAccounts();                    // retrieves the account array from a database
@@ -184,5 +204,5 @@ void UnloadDefaultModules(void)
 	UnloadContactListModule();
 	UnloadEventsModule();
 	UnloadNetlibModule();
-	UnloadSslModule();
+	UnloadSslModuleOrPlugin();
 }
