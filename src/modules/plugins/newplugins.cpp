@@ -809,33 +809,34 @@ int LoadSslPlugin(void)
 		// FFFN will return filenames for things like dot dll+ or dot dllx
 		WIN32_FIND_DATA ffd;
 		HANDLE hFind = FindFirstFile(search, &ffd);
-		if (hFind != INVALID_HANDLE_VALUE) {
-			do {
-				if (!(ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) && valid_library_name(ffd.cFileName)) {
-					TCHAR tszFullPath[MAX_PATH], tszNameOnly[MAX_PATH];
-					mir_sntprintf(tszFullPath, SIZEOF(tszFullPath), _T("%s\\Core\\%s"), exe, ffd.cFileName);
-					memcpy(tszNameOnly, ffd.cFileName, sizeof(tszNameOnly));
-					TCHAR *p = _tcsrchr(tszNameOnly, '.'); if (p) *p = 0;
+		if (hFind == INVALID_HANDLE_VALUE)
+			return 1;
 
-					bool bIsPlugin = false;
-					mir_ptr<MUUID> pIds( GetPluginInterfaces(tszFullPath, bIsPlugin));
-					if (bIsPlugin && hasMuuid(pIds, miid_ssl)) {
-						MuuidReplacement mr = {MIID_SSL, tszNameOnly, NULL};
-						bPluginLoaded = LoadCorePlugin(mr);
-						if (bPluginLoaded) {
-							// unload if the plugin claims to be SSL, but didn't register an API
-							if (ServiceExists(MS_SYSTEM_GET_SI)) {
-								break;
-							} else {
-								Plugin_UnloadDyn(mr.pImpl);
-								bPluginLoaded = false;
-							}
+		do {
+			if (!(ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) && valid_library_name(ffd.cFileName)) {
+				TCHAR tszFullPath[MAX_PATH], tszNameOnly[MAX_PATH];
+				mir_sntprintf(tszFullPath, SIZEOF(tszFullPath), _T("%s\\Core\\%s"), exe, ffd.cFileName);
+				memcpy(tszNameOnly, ffd.cFileName, sizeof(tszNameOnly));
+				TCHAR *p = _tcsrchr(tszNameOnly, '.'); if (p) *p = 0;
+
+				bool bIsPlugin = false;
+				mir_ptr<MUUID> pIds( GetPluginInterfaces(tszFullPath, bIsPlugin));
+				if (bIsPlugin && hasMuuid(pIds, miid_ssl)) {
+					MuuidReplacement mr = {MIID_SSL, tszNameOnly, NULL};
+					bool res = LoadCorePlugin(mr);
+					if (res) {
+						// unload if the plugin claims to be SSL, but didn't register an API
+						if (ServiceExists(MS_SYSTEM_GET_SI)) {
+							bPluginLoaded = true;
+							break;
+						} else {
+							Plugin_UnloadDyn(mr.pImpl);
 						}
 					}
 				}
-			} while (FindNextFile(hFind, &ffd));
-			FindClose(hFind);
-		} //if
+			}
+		} while (FindNextFile(hFind, &ffd));
+		FindClose(hFind);
 	}
 
 	return !bPluginLoaded;
