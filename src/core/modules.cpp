@@ -33,6 +33,7 @@ int  LoadSystemModule(void);		// core: m_system.h services
 int  LoadNewPluginsModuleInfos(void); // core: preloading plugins
 int  LoadNewPluginsModule(void);	// core: N.O. plugins
 int  LoadSslModule(void);
+int  LoadSslPlugin(void);
 int  LoadNetlibModule(void);		// core: network
 void NetlibInitSsl(void);
 int  LoadLangpackModule(void);	// core: translation
@@ -87,6 +88,24 @@ void UnloadUtilsModule(void);
 int  LoadIcoTabsModule();
 int  LoadHeaderbarModule();
 int  LoadDescButtonModule();
+
+static BOOL bSslIsPlugin = FALSE;
+
+int LoadSslPluginOrModule(void)
+{
+	if (!LoadSslPlugin()) {
+		bSslIsPlugin = true;
+		return 0;
+	}
+	return LoadSslModule();
+}
+
+void UnloadSslPluginOrModule(void)
+{
+	if (!bSslIsPlugin) {
+		UnloadSslModule();
+	}
+}
 
 int LoadDefaultModules(void)
 {
@@ -143,7 +162,7 @@ int LoadDefaultModules(void)
 	if (LoadDescButtonModule()) return 1;
 	if (LoadOptionsModule()) return 1;
 	if (LoadNetlibModule()) return 1;
-	if (LoadSslModule()) return 1;
+	if (LoadSslPluginOrModule()) return 1;
 	NetlibInitSsl();
 	if (LoadProtocolsModule()) return 1;
 	LoadDbAccounts();                    // retrieves the account array from a database
@@ -184,5 +203,5 @@ void UnloadDefaultModules(void)
 	UnloadContactListModule();
 	UnloadEventsModule();
 	UnloadNetlibModule();
-	UnloadSslModule();
+	UnloadSslPluginOrModule();
 }

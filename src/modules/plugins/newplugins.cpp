@@ -214,6 +214,7 @@ MUUID miid_database = MIID_DATABASE;
 MUUID miid_protocol = MIID_PROTOCOL;
 MUUID miid_servicemode = MIID_SERVICEMODE;
 MUUID miid_crypto = MIID_CRYPTO;
+MUUID miid_ssl = MIID_SSL;
 
 static bool validInterfaceList(MUUID *piface)
 {
@@ -778,6 +779,56 @@ int LoadNewPluginsModule(void)
 
 	HookEvent(ME_OPT_INITIALISE, PluginOptionsInit);
 	return 0;
+}
+
+int LoadSslPlugin(void)
+{
+	// if an SSL Core Plugin is present, load it before initializing builtin SSL
+	bool bPluginLoaded = false;
+
+	// get miranda's exe path
+	TCHAR exe[MAX_PATH];
+	GetModuleFileName(NULL, exe, SIZEOF(exe));
+	TCHAR *p = _tcsrchr(exe, '\\'); if (p) *p = 0;
+
+	// create the search filter
+	TCHAR search[MAX_PATH];
+	mir_sntprintf(search, SIZEOF(search), _T("%s\\Core\\SslApi_*.dll"), exe);
+	{
+		// FFFN will return filenames for things like dot dll+ or dot dllx
+		WIN32_FIND_DATA ffd;
+		HANDLE hFind = FindFirstFile(search, &ffd);
+		if (hFind == INVALID_HANDLE_VALUE)
+			return 1;
+
+		do {
+			if (!(ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) && valid_library_name(ffd.cFileName)) {
+				TCHAR tszFullPath[MAX_PATH], tszNameOnly[MAX_PATH];
+				mir_sntprintf(tszFullPath, SIZEOF(tszFullPath), _T("%s\\Core\\%s"), exe, ffd.cFileName);
+				memcpy(tszNameOnly, ffd.cFileName, sizeof(tszNameOnly));
+				TCHAR *p = _tcsrchr(tszNameOnly, '.'); if (p) *p = 0;
+
+				bool bIsPlugin = false;
+				mir_ptr<MUUID> pIds( GetPluginInterfaces(tszFullPath, bIsPlugin));
+				if (bIsPlugin && hasMuuid(pIds, miid_ssl)) {
+					MuuidReplacement mr = {MIID_SSL, tszNameOnly, NULL};
+					bool res = LoadCorePlugin(mr);
+					if (res) {
+						// unload if the plugin claims to be SSL, but didn't register an API
+						if (ServiceExists(MS_SYSTEM_GET_SI)) {
+							bPluginLoaded = true;
+							break;
+						} else {
+							Plugin_UnloadDyn(mr.pImpl);
+						}
+					}
+				}
+			}
+		} while (FindNextFile(hFind, &ffd));
+		FindClose(hFind);
+	}
+
+	return !bPluginLoaded;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
